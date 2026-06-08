@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="_csrf" th:content="${_csrf != null ? _csrf.token : ''}"/>
+    <meta name="_csrf_header" th:content="${_csrf != null ? _csrf.headerName : ''}"/>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Gaegu&family=Jua&family=Nanum+Pen+Script&display=swap" rel="stylesheet">
+    <title>프로필 수정</title>
+    <style>
+        @font-face {
+            font-family: 'DungGeunMo';
+            src: url('/fonts/DungGeunMo.woff') format('woff');
+            font-weight: normal;
+            font-display: swap;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background-color: #5b9bd5;
+            background-image: url('/images/clouds.png');
+            background-repeat: no-repeat;
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'DungGeunMo', 'Georgia', serif;
+            color: #2a3560;
+            padding: 30px 0;
+        }
+        .card {
+            background: #fff;
+            width: 360px;
+            padding: 36px 30px;
+            border-radius: 4px;
+            box-shadow: 4px 4px 20px rgba(0,0,0,0.15);
+            border-left: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+        h2 { color: #5a4a3a; font-size: 20px; }
+
+        /* 프로필 사진 */
+        .avatar-area { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+        .avatar {
+            width: 110px;
+            height: 110px;
+            border-radius: 50%;
+            background: #e0d6c8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 48px;
+            color: #a89880;
+            overflow: hidden;
+            border: 3px solid #3a6ff7;
+        }
+        .avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .photo-btn {
+            font-size: 12px;
+            color: #3a6ff7;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        label.field { width: 100%; font-size: 12px; color: #8a7a6a; margin-bottom: -8px; }
+        input, textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            outline: none;
+            background: #fafafa;
+            font-family: inherit;
+        }
+        input:focus, textarea:focus { border-color: #3a6ff7; }
+        textarea { resize: vertical; min-height: 60px; }
+
+        .error {
+            width: 100%;
+            background: #fbe9e7;
+            color: #c0392b;
+            border: 1px solid #e6b0aa;
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 13px;
+            text-align: center;
+        }
+
+        .btn-area { display: flex; gap: 10px; width: 100%; }
+        button, .btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            text-align: center;
+            text-decoration: none;
+        }
+        .btn-save { background-color: #3a6ff7; color: white; }
+        .btn-back { background-color: #e0d6c8; color: #5a4a3a; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h2>프로필 수정</h2>
+
+    <div class="error" th:if="${error}" th:text="${error}"></div>
+
+    <form th:action="@{/profile}" method="post"
+          style="width:100%; display:flex; flex-direction:column; align-items:center; gap:16px;">
+
+        <!-- 프로필 사진 -->
+        <div class="avatar-area">
+            <div class="avatar" id="avatar">
+                <img th:if="${user.profileImage != null and !user.profileImage.isEmpty()}"
+                     th:src="${user.profileImage}" id="avatarImg" alt="프로필"/>
+                <span th:if="${user.profileImage == null or user.profileImage.isEmpty()}" id="avatarIcon">👤</span>
+            </div>
+            <label class="photo-btn">
+                📷 사진 변경
+                <input type="file" accept="image/*" style="display:none" onchange="uploadPhoto(event)"/>
+            </label>
+            <!-- 업로드된 사진 경로 (변경 안 하면 빈 값 → 기존 사진 유지) -->
+            <input type="hidden" name="profileImage" id="profileImage"/>
+        </div>
+
+        <label class="field">닉네임</label>
+        <input type="text" name="nickname"
+               th:value="${inputNickname != null ? inputNickname : user.nickname}"
+               placeholder="닉네임" required/>
+
+        <label class="field">다이어리 제목</label>
+        <input type="text" name="diaryTitle"
+               th:value="${inputDiaryTitle != null ? inputDiaryTitle : user.diaryTitle}"
+               placeholder="다이어리 제목"/>
+
+        <label class="field">한줄 소개</label>
+        <textarea name="bio" placeholder="자신을 소개해보세요"
+                  th:text="${inputBio != null ? inputBio : user.bio}"></textarea>
+
+        <label class="field">다이어리 폰트</label>
+        <select name="fontFamily"
+                style="width:100%; padding:11px 14px; border:1px solid #ddd; border-radius:4px; font-size:14px; background:#fafafa; font-family:inherit;">
+            <option value="DungGeunMo"
+                    th:selected="${user.fontFamily == null or user.fontFamily.isEmpty() or user.fontFamily == 'DungGeunMo'}">둥근모 (픽셀체)</option>
+            <option value="Jua" th:selected="${user.fontFamily == 'Jua'}" style="font-family:'Jua';">주아체 (둥근 고딕)</option>
+            <option value="Gaegu" th:selected="${user.fontFamily == 'Gaegu'}" style="font-family:'Gaegu';">개구체 (손글씨)</option>
+            <option value="Nanum Pen Script" th:selected="${user.fontFamily == 'Nanum Pen Script'}" style="font-family:'Nanum Pen Script';">나눔손글씨 펜</option>
+            <option value="Do Hyeon" th:selected="${user.fontFamily == 'Do Hyeon'}" style="font-family:'Do Hyeon';">도현체</option>
+        </select>
+
+        <div class="btn-area">
+            <button type="submit" class="btn btn-save">저장</button>
+            <a th:href="@{/diaries}" class="btn btn-back">돌아가기</a>
+        </div>
+    </form>
+</div>
+
+<script>
+    // 사진을 /upload 로 올리고, 받은 경로를 미리보기 + hidden 필드에 반영
+    async function uploadPhoto(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const headers = {};
+        const tokenMeta = document.querySelector('meta[name="_csrf"]');
+        const headerMeta = document.querySelector('meta[name="_csrf_header"]');
+        if (tokenMeta && headerMeta && tokenMeta.content) {
+            headers[headerMeta.content] = tokenMeta.content;
+        }
+
+        try {
+            const res = await fetch('/upload', { method: 'POST', body: formData, headers });
+            if (!res.ok) throw new Error('상태 ' + res.status);
+            const data = await res.json();
+
+            // hidden 필드에 경로 저장
+            document.getElementById('profileImage').value = data.url;
+
+            // 미리보기 갱신
+            const avatar = document.getElementById('avatar');
+            avatar.innerHTML = '<img src="' + data.url + '" alt="프로필"/>';
+        } catch (err) {
+            alert('사진 업로드 실패: ' + err.message);
+        }
+        event.target.value = '';
+    }
+</script>
+</body>
+</html>

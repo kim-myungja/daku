@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="_csrf" th:content="${_csrf != null ? _csrf.token : ''}"/>
+    <meta name="_csrf_header" th:content="${_csrf != null ? _csrf.headerName : ''}"/>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Gaegu&family=Jua&family=Nanum+Pen+Script&display=swap" rel="stylesheet">
+    <title th:text="${user.diaryTitle}">내 다이어리</title>
+    <style>
+        @font-face {
+            font-family: 'DungGeunMo';
+            src: url('/fonts/DungGeunMo.woff') format('woff');
+            font-weight: normal;
+            font-display: swap;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background-color: #5b9bd5;
+            background-image: url('/images/clouds.png');
+            background-repeat: no-repeat;
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            font-family: 'DungGeunMo', 'Georgia', serif;
+            color: #2a3560;
+            padding: 20px 0 60px;
+            image-rendering: pixelated;
+        }
+        /* 폼 요소도 둥근모로 (input/button/select 는 폰트 상속이 안 되므로 명시) */
+        input, button, select, textarea { font-family: inherit; color: inherit; }
+
+        /* 상단 미니 네비 (노트 밖) */
+        .topnav {
+            max-width: 900px;
+            margin: 0 auto 14px;
+            padding: 0 20px 0 54px;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 10px;
+        }
+        .topnav a, .topnav button {
+            text-decoration: none;
+            color: #5a4a3a;
+            font-size: 13px;
+            background: #fff;
+            border: 1px solid #cfe0ff;
+            border-radius: 16px;
+            padding: 6px 14px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .topnav a:hover, .topnav button:hover { background: #f5efe5; }
+        .topnav form { margin: 0; }
+
+        /* 노트 전체 */
+        .notebook {
+            position: relative;
+            max-width: 900px;
+            margin: 0 auto;
+            padding-left: 34px;
+        }
+        /* 노트 상단 제본 고리 (◯◯◯) */
+        .binding {
+            position: absolute;
+            top: -13px;
+            right: 44px;
+            display: flex;
+            gap: 16px;
+            z-index: 4;
+        }
+        .binding span {
+            width: 34px;
+            height: 15px;
+            border: 2.5px solid #2a3560;
+            border-radius: 50%;
+            background: #fffdf8;
+        }
+        /* 왼쪽 스프링 코일 */
+        .spiral {
+            position: absolute;
+            left: 4px;
+            top: 26px;
+            bottom: 26px;
+            width: 30px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            z-index: 3;
+        }
+        .spiral i {
+            display: block;
+            width: 30px;
+            height: 9px;
+            border: 2.5px solid #b2925f;
+            border-radius: 50%;
+            background: #efe7dc;
+        }
+        /* 노트 페이지 */
+        /* 노트 앞 표지: 외곽 테두리로 감싸 커버처럼 */
+        .page {
+            background: #fffdf8;
+            border: 3px solid #2a3560;
+            border-radius: 6px 22px 22px 6px;
+            box-shadow: 6px 10px 28px rgba(0,0,0,0.26);
+            padding: 30px 34px 38px;
+            position: relative;
+        }
+
+        /* 제목 바 */
+        .title-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 24px;
+            position: relative;
+        }
+        /* 제목을 박스 안에 가둔 다이어리 표지 제목 */
+        .title-bar h1 {
+            font-size: 24px;
+            color: #2a3560;
+            letter-spacing: 3px;
+            border: 3px solid #2a3560;
+            border-radius: 10px;
+            padding: 10px 36px;
+            background: #fff;
+            box-shadow: 3px 3px 0 #cfe0ff;
+        }
+        .title-bar .search { position: absolute; right: 0; bottom: 2px; display: flex; gap: 6px; }
+        .title-bar .search input {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            border-radius: 16px;
+            outline: none;
+            font-size: 13px;
+            width: 150px;
+        }
+        .title-bar .search button {
+            border: none; background: #3a6ff7; color: #fff;
+            border-radius: 16px; padding: 6px 12px; cursor: pointer; font-size: 13px;
+        }
+
+        /* 프로필 + 달력 (1:1) */
+        .top-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        /* 프로필 (살짝 아래로) */
+        .profile { display: flex; flex-direction: column; align-items: center; text-align: center; margin-top: 20px; }
+        .avatar {
+            width: 150px;
+            height: 150px;
+            border-radius: 10px;
+            background: #e7ddcc;
+            border: 3px solid #1a1a1a;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 70px; color: #b0a08a;
+            overflow: hidden;
+        }
+        .avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .profile .nick { margin-top: 12px; font-size: 15px; color: #5a4a3a; }
+        .profile .bio {
+            margin-top: 6px; font-size: 12px; color: #998a78;
+            max-width: 200px; line-height: 1.4; min-height: 16px;
+            white-space: pre-line; /* 한줄소개의 줄바꿈 살리기 */
+        }
+        .profile .pbtns { display: flex; gap: 8px; margin-top: 14px; }
+        .profile .pbtns a, .profile .pbtns button, .profile .pbtns span {
+            text-decoration: none;
+            font-size: 13px;
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: 2px solid #2a3560;
+            box-shadow: 2px 2px 0 #2a3560;
+            font-family: inherit;
+            cursor: pointer;
+            color: #2a3560;
+        }
+        .profile .pbtns form { margin: 0; }
+        .profile .pbtns a:active, .profile .pbtns button:active { box-shadow: 0 0 0 #2a3560; transform: translate(2px,2px); }
+        .pbtns .set { background: #cfe0ff; color: #2a3560; }
+        .pbtns .write { background: #3a6ff7; color: #fff; }
+
+        /* TODAY IS 무드 (싸이월드 스타일) */
+        .today-mood {
+            position: relative; display: inline-flex; align-items: center; gap: 7px;
+            background: #2a3560; color: #fff; padding: 4px 12px; border-radius: 6px;
+            font-size: 12px; margin-bottom: 14px;
+        }
+        .today-label { letter-spacing: 1px; font-size: 11px; color: #aebfe6; }
+        .today-current { font-size: 13px; }
+        .today-arrow { cursor: pointer; font-size: 9px; padding: 2px; }
+        .mood-menu {
+            display: none; position: absolute; top: 100%; left: 0; margin-top: 5px;
+            background: #fff; border: 2px solid #2a3560; border-radius: 6px; z-index: 60;
+            min-width: 130px; box-shadow: 3px 3px 0 rgba(42,53,96,0.2); overflow: hidden;
+        }
+        .mood-menu.open { display: block; }
+        .mood-opt { padding: 7px 12px; cursor: pointer; color: #2a3560; font-size: 13px; text-align: left; }
+        .mood-opt:hover { background: #eef4ff; }
+        .mood-edit-link {
+            padding: 7px 12px; cursor: pointer; color: #3a6ff7; font-size: 12px;
+            border-top: 1px solid #e0e6f0; text-align: left;
+        }
+        .mood-edit-link:hover { background: #eef4ff; }
+
+        /* 무드 편집 팝업 (노션 스타일) */
+        .mood-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.25); z-index: 90; }
+        .mood-overlay.open { display: block; }
+        .mood-editor {
+            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+            background: #fffdf8; border: 3px solid #2a3560; border-radius: 10px; padding: 18px 20px;
+            z-index: 100; width: 290px; box-shadow: 5px 5px 0 rgba(42,53,96,0.25);
+        }
+        .mood-editor.open { display: block; }
+        .mood-editor-title { font-size: 14px; color: #2a3560; margin-bottom: 12px; font-weight: bold; }
+        .mood-edit-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 5px 0; font-size: 13px; color: #2a3560; border-bottom: 1px dotted #d4ddf0;
+        }
+        .mood-edit-row button { border: none; background: none; color: #c05050; cursor: pointer; font-size: 13px; }
+        .mood-add-row { display: flex; gap: 6px; margin-top: 12px; }
+        .mood-add-row input { flex: 1; padding: 6px 8px; border: 1px solid #cdd9ee; border-radius: 4px; font-size: 13px; }
+        .mood-add-row button {
+            border: 2px solid #2a3560; background: #3a6ff7; color: #fff; border-radius: 4px;
+            cursor: pointer; font-size: 12px; padding: 0 12px;
+        }
+        .mood-editor-close {
+            margin-top: 14px; width: 100%; border: 2px solid #2a3560; background: #cfe0ff;
+            color: #2a3560; border-radius: 6px; cursor: pointer; padding: 7px; font-size: 13px;
+        }
+
+        /* 달력: 옛날 벽걸이 달력 느낌 (제본 고리 + 굵은 격자 프레임) */
+        .cal { display: flex; flex-direction: column; }
+        .cal-frame {
+            border: 3px solid #2a3560;
+            border-radius: 6px;
+            background: #fff;
+            box-shadow: 3px 3px 0 #cfe0ff;
+            overflow: hidden;
+        }
+        /* 상단 제본 바 + 고리 (ϾϾϾ) */
+        .cal-binding {
+            display: flex; justify-content: center; gap: 9px;
+            background: #2a3560; padding: 5px 0;
+        }
+        .cal-binding i {
+            width: 9px; height: 9px; border-radius: 50%;
+            background: #5b9bd5; border: 2px solid #cfe0ff;
+        }
+        .cal-nav {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 5px 10px; background: #3a6ff7;
+        }
+        .cal-nav a { text-decoration: none; color: #fff; font-size: 18px; padding: 0 6px; line-height: 1; }
+        .cal-nav h3 { color: #fff; font-size: 14px; letter-spacing: 1px; }
+        .cal-grid {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            grid-auto-rows: 1fr;
+            text-align: center;
+            font-size: 12px;
+        }
+        .cal-grid .dh {
+            color: #2a3560; padding: 4px 0; font-weight: bold;
+            background: #eef4ff; border: 1px solid #cdd9ee;
+        }
+        .cal-grid .dh:nth-child(1) { color: #e0506a; }   /* 일요일 빨강 */
+        .cal-grid .dh:nth-child(7) { color: #3a6ff7; }   /* 토요일 파랑 */
+        .cal-grid .day {
+            display: flex; align-items: center; justify-content: center;
+            color: #2a3560; text-decoration: none;
+            aspect-ratio: 1 / 1; border: 1px solid #cdd9ee;
+        }
+        .cal-grid a.day:hover { background: #eef4ff; }
+        .cal-grid .day.has-diary { background: #3a6ff7; color: #fff; font-weight: bold; }
+        .cal-grid .day.today { outline: 2px solid #e0506a; outline-offset: -3px; }
+
+        hr.divider { border: none; border-top: 2px solid #cfe0ff; margin: 4px 0 20px; }
+
+        /* 카테고리 섹션 */
+        .cat-section-head {
+            display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;
+        }
+        .cat-section-head h2 { font-size: 18px; color: #2a3560; border-bottom: 3px solid #2a3560; padding-bottom: 2px; }
+        .cat-add { display: flex; gap: 6px; align-items: center; margin-left: auto; }
+        .cat-add select, .cat-add input[type="text"] {
+            padding: 5px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; outline: none;
+        }
+        .cat-add input[type="text"] { width: 110px; }
+        .cat-add label { font-size: 12px; color: #8a7a6a; display: flex; align-items: center; gap: 3px; cursor: pointer; }
+        .cat-add button { border: none; background: #3a6ff7; color: #fff; border-radius: 4px; padding: 5px 12px; cursor: pointer; }
+
+        /* 카테고리: 박스 없이, 가로 4등분 트리 */
+        .cat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px 18px; align-items: start; }
+        .cat-card { background: none; border: none; padding: 0; min-width: 0; }
+        .cat-card.full { grid-column: 1 / -1; }
+        .cat-node { padding: 1px 0; }
+        .cat-node.sub { margin-left: 14px; padding-left: 10px; border-left: 1px dotted #9fb3d6; }
+        .cat-head { display: flex; align-items: center; gap: 5px; }
+        .cat-head .cat-icon { font-size: 13px; line-height: 1; }
+        .cat-head .cat-name { color: #2a3560; text-decoration: none; font-size: 14px; }
+        .cat-head .cat-name:hover { text-decoration: underline; }
+        .cat-head .lock { font-size: 11px; opacity: 0.55; }
+        .cat-head .cat-count { font-size: 12px; color: #8a93b5; }
+        .cat-node.selected > .cat-head .cat-name { color: #3a6ff7; font-weight: bold; }
+        .cat-actions { margin-left: 6px; display: inline-flex; gap: 1px; opacity: 0; transition: opacity .15s; }
+        .cat-node:hover .cat-actions { opacity: 1; }
+        .cat-actions .ic {
+            background: none; border: none; cursor: pointer; font-size: 11px; padding: 1px 2px; line-height: 1;
+        }
+        .cat-actions form { margin: 0; }
+        /* 글 목록: 아이콘 아래로 들여써서 트리처럼 */
+        .cat-diaries { list-style: none; margin: 0 0 2px 24px; }
+        .cat-diaries li {
+            font-size: 12px; padding: 2px 0 2px 10px; border-left: 1px solid #c4d2ec;
+        }
+        .cat-diaries li a { color: #5a6a90; text-decoration: none; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cat-head .cat-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 0 1 auto; }
+        .cat-diaries li a:hover { color: #3a6ff7; }
+        .all-node { border-bottom: 2px solid #2a3560; padding-bottom: 5px; margin-bottom: 6px; }
+        .cat-edit-badge {
+            font-size: 9px; background: #8a93b5; color: #fff; padding: 1px 5px;
+            border-radius: 3px; margin-left: 5px; letter-spacing: 1px; cursor: pointer;
+        }
+        .cat-grid.edit-mode .cat-edit-badge { background: #3a6ff7; }
+        /* 순서 이동 버튼 (EDIT 모드에서만 표시) */
+        .cat-move { display: none; margin-left: 4px; gap: 2px; flex-shrink: 0; }
+        .cat-grid.edit-mode .cat-move { display: inline-flex; }
+        .cat-move button {
+            border: 1px solid #2a3560; background: #cfe0ff; color: #2a3560;
+            border-radius: 3px; cursor: pointer; font-size: 11px; padding: 0 6px; line-height: 1.5;
+        }
+        .cat-move button:hover { background: #3a6ff7; color: #fff; }
+        .cat-toggle {
+            cursor: pointer; font-size: 11px; color: #3a6ff7;
+            padding: 0 4px; user-select: none; flex-shrink: 0;
+        }
+        .cat-head .cat-icon, .cat-head .lock, .cat-head .cat-count { flex-shrink: 0; }
+
+        /* 필터 결과 목록 */
+        .result-head { font-size: 14px; color: #5a4a3a; margin-bottom: 14px; }
+        .result-head a { color: #3a6ff7; margin-left: 8px; text-decoration: none; }
+        .diary-list { display: flex; flex-direction: column; gap: 10px; }
+        .diary-card {
+            background: #fff; border-radius: 6px; padding: 14px 18px; border-left: 5px solid #3a6ff7;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .diary-card h3 { font-size: 16px; color: #3a2a1a; }
+        .diary-card .meta { font-size: 12px; color: #999; margin-top: 4px; }
+        .diary-card .meta a { color: #999; text-decoration: none; }
+        .diary-card .actions { display: flex; gap: 8px; }
+        .btn-sm { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; text-decoration: none; }
+        .btn-view { background: #3a6ff7; color: white; }
+        .btn-edit { background: #cfe0ff; color: #5a4a3a; }
+        .btn-delete { background: #f0d0d0; color: #a05050; }
+        .empty { text-align: center; color: #b3a690; padding: 30px; width: 100%; }
+    </style>
+</head>
+<body th:with="userFont=${user.fontFamily != null and !user.fontFamily.isEmpty() ? user.fontFamily : 'DungGeunMo'}"
+      th:style="|font-family: '${userFont}', 'Georgia', serif|">
+
+<!-- 상단 미니 네비 -->
+<div class="topnav">
+    <a th:unless="${owner}" th:href="@{/diaries}">🏠 내 다이어리</a>
+    <a th:href="@{/explore}">🔍 이웃 찾기</a>
+    <a th:href="@{/neighbors}">👥 이웃</a>
+    <form th:if="${owner}" th:action="@{/logout}" method="post">
+        <button type="submit">로그아웃</button>
+    </form>
+</div>
+
+<div class="notebook">
+    <!-- 스프링 코일 -->
+    <div class="spiral">
+        <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+        <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+    </div>
+
+    <div class="page">
+        <!-- 제목 바 -->
+        <div class="title-bar">
+            <h1 th:text="${user.diaryTitle}">Jun's Diary</h1>
+            <form class="search" th:if="${owner}" th:action="@{__${baseUrl}__}" method="get">
+                <input type="text" name="q" th:value="${q}" placeholder="검색"/>
+                <button type="submit">🔍</button>
+            </form>
+        </div>
+
+        <!-- 프로필 + 달력 -->
+        <div class="top-grid">
+            <!-- 프로필 -->
+            <div class="profile">
+                <!-- TODAY IS 무드 (싸이월드 스타일) -->
+                <div class="today-mood" th:if="${owner or (todayMood != null and !todayMood.isEmpty())}">
+                    <span class="today-label">TODAY IS..</span>
+                    <span class="today-current" id="todayCurrent"
+                          th:text="${todayMood != null and !todayMood.isEmpty() ? todayMood : '➕ 선택'}">😊</span>
+                    <span class="today-arrow" th:if="${owner}" onclick="toggleMoodMenu()">▼</span>
+                    <div class="mood-menu" id="moodMenu" th:if="${owner}">
+                        <div class="mood-opt" th:each="m : ${moodOptions}"
+                             th:text="${m}" onclick="setMood(this.textContent)">😊</div>
+                        <div class="mood-edit-link" onclick="openMoodEdit()">✎ 속성 편집</div>
+                    </div>
+                </div>
+                <div class="avatar">
+                    <img th:if="${user.profileImage != null and !user.profileImage.isEmpty()}"
+                         th:src="${user.profileImage}" alt="프로필"/>
+                    <span th:if="${user.profileImage == null or user.profileImage.isEmpty()}">👤</span>
+                </div>
+                <div class="nick" th:text="'@' + ${user.nickname}">@user</div>
+                <div class="bio" th:text="${user.bio}">한줄 소개</div>
+                <!-- 내 다이어리: 설정/글쓰기 -->
+                <div class="pbtns" th:if="${owner}">
+                    <a th:href="@{/profile}" class="set">⚙️ 설정</a>
+                    <a th:href="@{/diaries/new}" class="write">✏️ 글쓰기</a>
+                </div>
+                <!-- 방문 중: 서로이웃 / 이웃 버튼 -->
+                <div class="pbtns" th:unless="${owner}">
+                    <span th:if="${relationStatus == 'ACCEPTED'}" class="set">✅ 서로이웃</span>
+                    <span th:if="${relationStatus == 'PENDING'}" class="set">⏳ 신청중</span>
+                    <form th:if="${relationStatus == 'NONE'}" th:action="@{/neighbors/request}" method="post" style="margin:0;">
+                        <input type="hidden" name="toUserId" th:value="${targetId}"/>
+                        <button type="submit" class="write">서로이웃 신청</button>
+                    </form>
+                    <form th:unless="${isFollowing}" th:action="@{/follow}" method="post" style="margin:0;">
+                        <input type="hidden" name="toUserId" th:value="${targetId}"/>
+                        <button type="submit" class="set">+ 이웃</button>
+                    </form>
+                    <form th:if="${isFollowing}" th:action="@{/unfollow}" method="post" style="margin:0;">
+                        <input type="hidden" name="toUserId" th:value="${targetId}"/>
+                        <input type="hidden" name="from" value="/neighbors"/>
+                        <button type="submit" class="set">이웃중 ✓</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 달력 (1:1) — 옛날 벽걸이 달력 느낌 -->
+            <div class="cal">
+                <div class="cal-frame">
+                    <!-- 상단 제본 고리 -->
+                    <div class="cal-binding"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+                    <div class="cal-nav">
+                        <a th:href="@{__${baseUrl}__(year=${prevYear},month=${prevMonth})}" title="이전 달">‹</a>
+                        <h3 th:text="${calYear} + '. ' + ${calMonth}">2026. 6</h3>
+                        <a th:href="@{__${baseUrl}__(year=${nextYear},month=${nextMonth})}" title="다음 달">›</a>
+                    </div>
+                    <div class="cal-grid">
+                        <div class="dh">일</div><div class="dh">월</div><div class="dh">화</div>
+                        <div class="dh">수</div><div class="dh">목</div><div class="dh">금</div><div class="dh">토</div>
+                        <th:block th:each="cell : ${calendar}">
+                            <span th:if="${cell.blank}" class="day"></span>
+                            <a th:unless="${cell.blank}"
+                               th:href="@{__${baseUrl}__(date=${cell.dateStr})}"
+                               class="day"
+                               th:classappend="${(cell.hasDiary ? ' has-diary' : '') + (cell.today ? ' today' : '')}"
+                               th:text="${cell.day}">1</a>
+                        </th:block>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <hr class="divider"/>
+
+        <!-- 카테고리 섹션 -->
+        <div class="cat-section-head">
+            <h2>Category</h2>
+            <!-- 카테고리 추가 (부모 선택 + 비공개 옵션) -->
+            <form class="cat-add" th:if="${owner}" th:action="@{/categories/new}" method="post">
+                <select name="parentId">
+                    <option value="">📂 최상위</option>
+                    <option th:each="c : ${categoriesFlat}" th:value="${c.id}" th:text="${c.displayName}">분류</option>
+                </select>
+                <input type="text" name="name" placeholder="새 카테고리" required/>
+                <label><input type="checkbox" name="locked" value="true"/>🔒</label>
+                <button type="submit">+ 추가</button>
+            </form>
+        </div>
+
+        <!-- (A) 필터(검색/날짜/카테고리) 결과 모드 -->
+        <div th:if="${hasFilter}">
+            <div class="result-head">
+                <span th:if="${q != null and !q.isEmpty()}">🔍 '<span th:text="${q}"></span>' 검색 결과</span>
+                <span th:if="${selectedCategory != null and !selectedCategory.isEmpty()}">📁 '<span th:text="${selectedCategory}"></span>' 카테고리</span>
+                <span th:if="${filterDate != null and !filterDate.isEmpty()}">📅 <span th:text="${filterDate}"></span></span>
+                <a th:href="@{__${baseUrl}__}">✕ 전체 보기</a>
+            </div>
+            <div class="diary-list">
+                <div th:if="${#lists.isEmpty(diaries)}" class="empty">조건에 맞는 다이어리가 없어요.</div>
+                <div th:each="diary : ${diaries}" class="diary-card">
+                    <div>
+                        <h3 th:text="${diary.title}">제목</h3>
+                        <div class="meta">
+                            <a th:if="${diary.category != null and !diary.category.isEmpty()}"
+                               th:href="@{__${baseUrl}__(category=${diary.category})}" th:text="${diary.category}">카테고리</a>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <a th:href="@{/diaries/{id}(id=${diary.id})}" class="btn-sm btn-view">보기</a>
+                        <a th:if="${owner}" th:href="@{/diaries/{id}/edit(id=${diary.id})}" class="btn-sm btn-edit">수정</a>
+                        <form th:if="${owner}" th:action="@{/diaries/{id}/delete(id=${diary.id})}" method="post" style="display:inline">
+                            <button type="submit" class="btn-sm btn-delete">삭제</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- (B) 평소: 카테고리별 글 트리 모드 -->
+        <div th:unless="${hasFilter}" class="cat-grid">
+            <!-- 전체보기 -->
+            <div class="cat-card full">
+                <div class="cat-node all-node">
+                    <div class="cat-head">
+                        <span class="cat-icon">🗒️</span>
+                        <a class="cat-name" th:href="@{__${baseUrl}__}">전체보기</a>
+                        <span class="cat-count" th:text="'(' + ${totalCount} + ')'">(0)</span>
+                        <span class="cat-edit-badge" th:if="${owner}" onclick="toggleCatEdit()" title="카테고리 순서 편집">EDIT</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 각 최상위 카테고리: 서브트리를 평면으로 순회 (depth 만큼 들여쓰기) -->
+            <div class="cat-card" th:each="root : ${categories}">
+                <div class="cat-node" th:each="node : ${root.flatSubtree}"
+                     th:classappend="${node.depth > 0} ? ' sub' : ''"
+                     th:style="${node.depth > 0} ? 'margin-left:' + (${node.depth} * 12) + 'px' : ''">
+                    <div class="cat-head">
+                        <span class="cat-icon" th:text="${#lists.isEmpty(node.children) ? '📄' : '📁'}">📄</span>
+                        <a class="cat-name" th:href="@{__${baseUrl}__(category=${node.name})}" th:text="${node.name}">이름</a>
+                        <span class="cat-toggle" th:if="${node.depth == 0}"
+                              onclick="toggleCat(this)" data-collapsed="0">▼</span>
+                        <span class="lock" th:if="${node.locked}" title="비공개">🔒</span>
+                        <span class="cat-count" th:text="'(' + ${node.diaryCount} + ')'">(0)</span>
+                        <span class="cat-move" th:if="${node.depth == 0 and owner}">
+                            <button type="button" th:attr="data-id=${node.id}" onclick="moveCat(this,'up')" title="위로">↑</button>
+                            <button type="button" th:attr="data-id=${node.id}" onclick="moveCat(this,'down')" title="아래로">↓</button>
+                        </span>
+                        <span class="cat-actions" th:if="${owner}">
+                            <button type="button" class="ic"
+                                    th:attr="data-id=${node.id},data-name=${node.name},data-locked=${node.locked}"
+                                    onclick="renameCat(this)" title="이름 변경">✏️</button>
+                            <form th:action="@{/categories/{id}/edit(id=${node.id})}" method="post" style="display:inline">
+                                <input type="hidden" name="name" th:value="${node.name}"/>
+                                <input type="hidden" name="locked" th:value="${!node.locked}"/>
+                                <button type="submit" class="ic"
+                                        th:title="${node.locked ? '공개로 전환' : '비공개로 전환'}"
+                                        th:text="${node.locked ? '🔓' : '🔒'}">🔒</button>
+                            </form>
+                            <form th:action="@{/categories/{id}/delete(id=${node.id})}" method="post"
+                                  th:attr="data-name=${node.name}" onsubmit="return confirmDeleteCat(this)" style="display:inline">
+                                <button type="submit" class="ic del" title="삭제">✕</button>
+                            </form>
+                        </span>
+                    </div>
+                    <ul class="cat-diaries">
+                        <li th:each="d : ${diariesByCategory.get(node.name)}">
+                            <a th:href="@{/diaries/{id}(id=${d.id})}" th:text="${d.title}">글 제목</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 미분류 글 -->
+            <div class="cat-card" th:if="${diariesByCategory.get('') != null}">
+                <div class="cat-head">
+                    <span class="cat-icon">🗑️</span>
+                    <span class="cat-name">미분류</span>
+                    <span class="cat-count" th:text="'(' + ${diariesByCategory.get('').size()} + ')'">(0)</span>
+                </div>
+                <ul class="cat-diaries">
+                    <li th:each="d : ${diariesByCategory.get('')}">
+                        <a th:href="@{/diaries/{id}(id=${d.id})}" th:text="${d.title}">글</a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- 카테고리도 글도 없을 때 -->
+            <div th:if="${#lists.isEmpty(categories) and diariesByCategory.get('') == null}" class="empty">
+                아직 카테고리도 글도 없어요. ✏️ 글쓰기로 시작해보세요!
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 무드 편집 팝업 (노션 스타일) -->
+<div class="mood-overlay" id="moodOverlay" onclick="closeMoodEdit()"></div>
+<div class="mood-editor" id="moodEditor">
+    <div class="mood-editor-title">😀 TODAY IS 속성 편집</div>
+    <div id="moodEditList">
+        <div class="mood-edit-row" th:each="m : ${moodOptions}">
+            <span th:text="${m}">😊 행복</span>
+            <button th:attr="data-mood=${m}" onclick="deleteMood(this)">✕</button>
+        </div>
+    </div>
+    <div class="mood-add-row">
+        <input id="newMoodInput" placeholder="예: 🔥 열정" maxlength="20"/>
+        <button onclick="addMood()">+ 추가</button>
+    </div>
+    <button class="mood-editor-close" onclick="closeMoodEdit()">닫기</button>
+</div>
+
+<script>
+    // ----- TODAY IS 무드 -----
+    function moodHeaders() {
+        const token = document.querySelector('meta[name="_csrf"]').content;
+        const header = document.querySelector('meta[name="_csrf_header"]').content;
+        const h = { 'Content-Type': 'application/x-www-form-urlencoded' };
+        if (header) h[header] = token;
+        return h;
+    }
+    function toggleMoodMenu() {
+        document.getElementById('moodMenu').classList.toggle('open');
+    }
+    async function setMood(mood) {
+        mood = mood.trim();
+        await fetch('/mood/set', { method: 'POST', headers: moodHeaders(), body: 'mood=' + encodeURIComponent(mood) });
+        document.getElementById('todayCurrent').textContent = mood;
+        document.getElementById('moodMenu').classList.remove('open');
+    }
+    function openMoodEdit() {
+        document.getElementById('moodMenu').classList.remove('open');
+        document.getElementById('moodEditor').classList.add('open');
+        document.getElementById('moodOverlay').classList.add('open');
+    }
+    function closeMoodEdit() {
+        document.getElementById('moodEditor').classList.remove('open');
+        document.getElementById('moodOverlay').classList.remove('open');
+    }
+    async function addMood() {
+        const input = document.getElementById('newMoodInput');
+        const v = input.value.trim();
+        if (!v) return;
+        const res = await fetch('/mood/add', { method: 'POST', headers: moodHeaders(), body: 'mood=' + encodeURIComponent(v) });
+        const data = await res.json();
+        renderMoods(data.options);
+        input.value = '';
+    }
+    async function deleteMood(btn) {
+        const mood = btn.getAttribute('data-mood');
+        const res = await fetch('/mood/delete', { method: 'POST', headers: moodHeaders(), body: 'mood=' + encodeURIComponent(mood) });
+        const data = await res.json();
+        renderMoods(data.options);
+    }
+    // 편집 리스트 + 드롭다운 메뉴를 새 옵션으로 다시 그림
+    function renderMoods(options) {
+        const list = document.getElementById('moodEditList');
+        list.innerHTML = '';
+        options.forEach(function (m) {
+            const row = document.createElement('div');
+            row.className = 'mood-edit-row';
+            const span = document.createElement('span');
+            span.textContent = m;
+            const del = document.createElement('button');
+            del.textContent = '✕';
+            del.setAttribute('data-mood', m);
+            del.onclick = function () { deleteMood(del); };
+            row.appendChild(span);
+            row.appendChild(del);
+            list.appendChild(row);
+        });
+        const menu = document.getElementById('moodMenu');
+        menu.querySelectorAll('.mood-opt').forEach(function (e) { e.remove(); });
+        const editLink = menu.querySelector('.mood-edit-link');
+        options.forEach(function (m) {
+            const opt = document.createElement('div');
+            opt.className = 'mood-opt';
+            opt.textContent = m;
+            opt.onclick = function () { setMood(m); };
+            menu.insertBefore(opt, editLink);
+        });
+    }
+
+    // EDIT 모드 토글 — 최상위 카테고리에 ↑↓ 순서 버튼 표시/숨김
+    function toggleCatEdit() {
+        const grid = document.querySelector('.cat-grid');
+        if (grid) grid.classList.toggle('edit-mode');
+    }
+
+    // 카테고리 순서 이동 (위/아래) — 동적 폼 제출
+    function moveCat(btn, dir) {
+        const id = btn.getAttribute('data-id');
+        const f = document.createElement('form');
+        f.method = 'post';
+        f.action = '/categories/' + id + '/move';
+        const token = document.querySelector('meta[name="_csrf"]').content;
+        const fields = { direction: dir, _csrf: token };
+        for (const k in fields) {
+            const i = document.createElement('input');
+            i.type = 'hidden'; i.name = k; i.value = fields[k];
+            f.appendChild(i);
+        }
+        document.body.appendChild(f);
+        f.submit();
+    }
+
+    // 폴더 카테고리 펼침/접기 — 같은 카드 안 하위 카테고리들을 토글
+    function toggleCat(el) {
+        const card = el.closest('.cat-card');
+        const collapsed = el.dataset.collapsed === '1';
+        // 이 카테고리의 글 목록 + 하위 카테고리를 함께 접고 편다
+        card.querySelectorAll('.cat-diaries, .cat-node.sub').forEach(function (s) {
+            s.style.display = collapsed ? '' : 'none';
+        });
+        el.textContent = collapsed ? '▼' : '▶';
+        el.dataset.collapsed = collapsed ? '0' : '1';
+    }
+
+    // 카테고리 삭제 확인 (하위 카테고리까지 삭제됨을 안내)
+    function confirmDeleteCat(form) {
+        const name = form.getAttribute('data-name');
+        return confirm('[' + name + '] 카테고리를 삭제할까요?\n(하위 카테고리도 함께 삭제되고, 글은 미분류로 옮겨져요.)');
+    }
+
+    // 카테고리 이름 변경 — prompt 후 동적 폼 제출 (잠금 상태 유지)
+    function renameCat(btn) {
+        const id = btn.dataset.id;
+        const current = btn.dataset.name;
+        const locked = btn.dataset.locked;
+        const name = prompt('카테고리 이름 변경', current);
+        if (name === null || name.trim() === '') return;
+        const f = document.createElement('form');
+        f.method = 'post';
+        f.action = '/categories/' + id + '/edit';
+        const token = document.querySelector('meta[name="_csrf"]').content;
+        const fields = { name: name.trim(), locked: locked, _csrf: token };
+        for (const k in fields) {
+            const i = document.createElement('input');
+            i.type = 'hidden'; i.name = k; i.value = fields[k];
+            f.appendChild(i);
+        }
+        document.body.appendChild(f);
+        f.submit();
+    }
+</script>
+</body>
+</html>

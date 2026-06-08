@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>회원가입</title>
+    <style>
+        @font-face {
+            font-family: 'DungGeunMo';
+            src: url('/fonts/DungGeunMo.woff') format('woff');
+            font-weight: normal;
+            font-display: swap;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background-color: #5b9bd5;
+            background-image: url('/images/clouds.png');
+            background-repeat: no-repeat;
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'DungGeunMo', 'Georgia', serif;
+            color: #2a3560;
+        }
+
+        .diary-card {
+            background: #fff;
+            width: 320px;
+            padding: 40px 30px;
+            border-radius: 4px;
+            box-shadow: 4px 4px 20px rgba(0,0,0,0.15);
+            border-left: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+
+        h2 {
+            color: #5a4a3a;
+            font-size: 20px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            outline: none;
+            background: #fafafa;
+        }
+        input:focus { border-color: #3a6ff7; }
+
+        .btn-area {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+        }
+
+        button, .btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            text-align: center;
+            text-decoration: none;
+        }
+
+        .btn-submit {
+            background-color: #3a6ff7;
+            color: white;
+        }
+
+        .btn-back {
+            background-color: #e0d6c8;
+            color: #5a4a3a;
+        }
+
+        .error-msg {
+            width: 100%;
+            background: #fbe9e7;
+            color: #c0392b;
+            border: 1px solid #e6b0aa;
+            border-radius: 4px;
+            padding: 10px 14px;
+            font-size: 13px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<div class="diary-card">
+
+    <h2>새 다이어리 만들기</h2>
+
+    <!-- 에러 메시지 (중복 등 가입 실패 시) -->
+    <div class="error-msg" th:if="${error}" th:text="${error}"></div>
+
+    <!-- 회원가입 폼 -->
+    <form th:action="@{/register}" method="post"
+          style="width:100%; display:flex; flex-direction:column; gap:12px;">
+
+        <!-- 아이디 -->
+        <input type="text" name="username" placeholder="ID" th:value="${username}" required/>
+
+        <!-- 닉네임 -->
+        <input type="text" name="nickname" placeholder="닉네임 (@jun)" th:value="${nickname}" required/>
+
+        <!-- 다이어리 제목 -->
+        <input type="text" name="diaryTitle" placeholder="다이어리 제목 (Jun's Diary)" th:value="${diaryTitle}" required/>
+
+        <!-- 비밀번호 -->
+        <input type="password" name="password" placeholder="비밀번호" required/>
+
+        <div class="btn-area">
+            <button type="submit" class="btn btn-submit">시작하기</button>
+            <a th:href="@{/login}" class="btn btn-back">돌아가기</a>
+        </div>
+
+    </form>
+</div>
+</body>
+</html>

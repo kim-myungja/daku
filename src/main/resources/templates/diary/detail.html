@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Gaegu&family=Jua&family=Nanum+Pen+Script&display=swap" rel="stylesheet">
+    <title th:text="${diary.title}">다이어리</title>
+    <style>
+        @font-face {
+            font-family: 'DungGeunMo';
+            src: url('/fonts/DungGeunMo.woff') format('woff');
+            font-weight: normal;
+            font-display: swap;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        input, button, select, textarea { font-family: inherit; }
+        body {
+            background: #5b9bd5 url('/images/clouds.png') center/cover no-repeat fixed;
+            font-family: 'DungGeunMo', 'Georgia', serif;
+            color: #2a3560;
+        }
+        header {
+            background: #fff;
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .home-btn { font-size: 20px; text-decoration: none; color: #5a4a3a; }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            text-decoration: none;
+            text-align: center;
+        }
+        .btn-back { background: #3a6ff7; color: white; }
+        .btn-edit { background: #cfe0ff; color: #5a4a3a; }
+        .btn-delete { background: #f0d0d0; color: #a05050; }
+
+        .meta-bar {
+            background: #fff;
+            padding: 10px 24px;
+            font-size: 13px;
+            color: #999;
+            border-bottom: 1px solid #cfe0ff;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .canvas-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+            min-height: calc(100vh - 100px);
+            background: transparent;
+        }
+        /* 글 보기 캔버스도 노트 종이처럼 (왼쪽 스프링 + 표지 테두리) */
+        .notebook-edit { position: relative; padding-left: 38px; flex-shrink: 0; }
+        .notebook-edit .spiral {
+            position: absolute; left: 2px; top: 28px; bottom: 28px; width: 34px;
+            display: flex; flex-direction: column; justify-content: space-between; z-index: 5;
+        }
+        .notebook-edit .spiral i {
+            display: block; width: 34px; height: 11px;
+            border: 2.5px solid #b2925f; border-radius: 50%; background: #fffdf8;
+        }
+        .canvas {
+            position: relative;
+            background: #fffdf8;
+            width: 800px;
+            min-height: 1100px;
+            box-shadow: 6px 8px 24px rgba(0,0,0,0.24);
+            border: 3px solid #2a3560;
+            border-radius: 4px 18px 18px 4px;
+            flex-shrink: 0;
+        }
+        /* 페이지 넘기기 버튼 (오른쪽 아래) */
+        .page-nav {
+            position: fixed; bottom: 24px; right: 32px; z-index: 50;
+            display: flex; align-items: center; gap: 12px;
+            background: #fffdf8; border: 2.5px solid #2a3560; border-radius: 10px;
+            padding: 8px 16px; box-shadow: 3px 3px 0 #2a3560;
+        }
+        .page-nav button {
+            border: 2px solid #2a3560; background: #3a6ff7; color: #fff;
+            border-radius: 6px; cursor: pointer; font-size: 18px; padding: 2px 14px; line-height: 1.3;
+        }
+        .page-nav button:active { transform: translate(1px,1px); }
+        .page-nav span { font-size: 14px; color: #2a3560; min-width: 44px; text-align: center; }
+        .element {
+            position: absolute;
+        }
+        .element img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .element .text-content {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: transparent;
+            resize: none;
+            pointer-events: none;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body th:style="|font-family: '${userFont}', 'Georgia', serif|">
+
+<header>
+    <a th:href="@{/diaries}" class="home-btn">🏠</a>
+    <span style="flex:1; color:#3a2a1a; font-weight:bold;" th:text="${diary.title}">제목</span>
+    <a th:if="${isOwner}" th:href="@{/diaries/{id}/edit(id=${diary.id})}" class="btn btn-edit">수정</a>
+    <form th:if="${isOwner}" th:action="@{/diaries/{id}/delete(id=${diary.id})}" method="post" style="display:inline">
+        <button type="submit" class="btn btn-delete">삭제</button>
+    </form>
+    <a th:href="@{/diaries}" class="btn btn-back">목록으로</a>
+</header>
+
+<div class="meta-bar">
+    <span th:text="${diary.category}">카테고리</span>
+    <span th:text="${diary.createdAt}">날짜</span>
+    <span th:switch="${diary.visibility != null ? diary.visibility.name() : 'PRIVATE'}">
+    <span th:case="'PUBLIC'">🌐 전체공개</span>
+    <span th:case="'NEIGHBOR'">👥 서로이웃공개</span>
+    <span th:case="'PRIVATE'">🔒 비공개</span>
+</span>
+</div>
+
+<div class="canvas-wrapper">
+    <div class="notebook-edit">
+        <div class="spiral">
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+        </div>
+        <div class="canvas" id="canvas"></div>
+    </div>
+</div>
+
+<!-- 페이지 넘기기 (오른쪽 아래) -->
+<div class="page-nav">
+    <button type="button" onclick="prevPage()" title="이전 페이지">‹</button>
+    <span id="pageIndicator">1 / 1</span>
+    <button type="button" onclick="nextPage()" title="다음 페이지">›</button>
+</div>
+
+<!-- elementsJson 데이터 -->
+<script th:inline="javascript">
+    const elementsJson = [[${diary.elementsJson}]];
+</script>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    let currentPage = 1, totalPages = 1;
+
+    // ----- 여러 페이지(노트 넘기기) — 보기 전용 -----
+    function showPage(n) {
+        currentPage = n;
+        document.querySelectorAll('.element').forEach(function (el) {
+            el.style.display = (parseInt(el.dataset.page) === n) ? '' : 'none';
+        });
+        const ind = document.getElementById('pageIndicator');
+        if (ind) ind.textContent = currentPage + ' / ' + totalPages;
+    }
+    function nextPage() { if (currentPage < totalPages) showPage(currentPage + 1); }
+    function prevPage() { if (currentPage > 1) showPage(currentPage - 1); }
+
+    if (elementsJson) {
+        try {
+            const elements = JSON.parse(elementsJson);
+            elements.forEach(function(el) {
+                const div = document.createElement('div');
+                div.className = 'element';
+                div.dataset.page = el.page || 1;
+                if ((el.page || 1) > totalPages) totalPages = el.page;
+                div.style.left = el.x + 'px';
+                div.style.top = el.y + 'px';
+                div.style.width = el.w + 'px';
+                div.style.height = el.h + 'px';
+
+                if (el.type === 'TEXT') {
+                    const textarea = document.createElement('textarea');
+                    textarea.className = 'text-content';
+                    textarea.value = el.content || '';
+                    textarea.style.fontFamily = el.fontFamily || 'Georgia, serif';
+                    textarea.style.fontSize = el.fontSize || '16px';
+                    textarea.style.color = el.color || '#000000';
+                    div.appendChild(textarea);
+                } else {
+                    const img = document.createElement('img');
+                    img.src = el.content || '';
+                    div.appendChild(img);
+                }
+
+                canvas.appendChild(div);
+            });
+        } catch(e) {
+            console.error('요소 렌더링 오류:', e);
+        }
+    }
+    showPage(1);
+</script>
+
+</body>
+</html>

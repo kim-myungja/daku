@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>탐색</title>
+    <style>
+        @font-face { font-family:'DungGeunMo'; src:url('/fonts/DungGeunMo.woff') format('woff'); font-weight:normal; font-display:swap; }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { background:#5b9bd5 url('/images/clouds.png') center/cover no-repeat fixed; font-family:'DungGeunMo','Georgia',serif; color:#2a3560; }
+        header { background:#fff; padding:12px 24px; display:flex; gap:12px; align-items:center; box-shadow:0 2px 8px rgba(0,0,0,0.08); }
+        header a { text-decoration:none; color:#5a4a3a; font-size:14px; }
+        .wrap { max-width:600px; margin:24px auto; padding:0 16px; }
+        .search { display:flex; gap:8px; margin-bottom:20px; }
+        .search input { flex:1; padding:10px 12px; border:1px solid #ddd; border-radius:6px; font-size:14px; }
+        .user-card { background:#fff; border-radius:8px; padding:16px; margin-bottom:12px; display:flex; align-items:center; gap:12px; box-shadow:0 1px 4px rgba(0,0,0,0.06); }
+        .user-card .name { flex:1; }
+        .user-card .name a { color:#3a2a1a; text-decoration:none; font-weight:bold; }
+        .btn { padding:8px 14px; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-family:inherit; }
+        .btn-req { background:#3a6ff7; color:#fff; }
+        .btn-follow { background:#fff; color:#3a6ff7; border:2px solid #3a6ff7; }
+        .btn-following { background:#efefef; color:#333; }
+        .card-actions { display:flex; gap:8px; align-items:center; }
+        .card-actions form { margin:0; }
+        .tag { font-size:12px; color:#8a7a6a; }
+        .empty { color:#999; text-align:center; margin-top:20px; }
+    </style>
+</head>
+<body>
+<header>
+    <a th:href="@{/diaries}">🏠 내 다이어리</a>
+    <a th:href="@{/neighbors}">👥 이웃</a>
+    <span style="flex:1"></span>
+    <strong style="color:#5a4a3a;">이웃 찾기</strong>
+</header>
+
+<div class="wrap">
+    <form class="search" th:action="@{/explore}" method="get">
+        <input type="text" name="keyword" th:value="${keyword}" placeholder="닉네임으로 검색"/>
+        <button type="submit" class="btn btn-req">검색</button>
+    </form>
+
+    <div th:if="${keyword == null or keyword.isEmpty()}" class="empty">
+        찾고 싶은 사람의 닉네임을 검색해보세요.
+    </div>
+    <div th:if="${keyword != null and !keyword.isEmpty() and others.isEmpty()}" class="empty">
+        '<span th:text="${keyword}"></span>' 검색 결과가 없어요.
+    </div>
+
+    <div class="user-card" th:each="u : ${others}">
+        <div class="name">
+            <a th:href="@{/users/{id}(id=${u.id})}" th:text="${u.nickname != null ? u.nickname : u.username}">닉네임</a>
+            <div class="tag" th:text="${u.diaryTitle}">다이어리 제목</div>
+        </div>
+        <div class="card-actions">
+            <!-- 서로이웃 상태/신청 -->
+            <span th:if="${relations.get(u.id) == 'ACCEPTED'}" class="tag">✅ 서로이웃</span>
+            <span th:if="${relations.get(u.id) == 'PENDING'}" class="tag">⏳ 신청중</span>
+            <form th:if="${relations.get(u.id) == 'NONE'}" th:action="@{/neighbors/request}" method="post">
+                <input type="hidden" name="toUserId" th:value="${u.id}"/>
+                <button type="submit" class="btn btn-req">서로이웃 신청</button>
+            </form>
+            <!-- 이웃(팔로우) 버튼 -->
+            <form th:unless="${following.get(u.id)}" th:action="@{/follow}" method="post">
+                <input type="hidden" name="toUserId" th:value="${u.id}"/>
+                <button type="submit" class="btn btn-follow">+ 이웃</button>
+            </form>
+            <form th:if="${following.get(u.id)}" th:action="@{/unfollow}" method="post">
+                <input type="hidden" name="toUserId" th:value="${u.id}"/>
+                <input type="hidden" name="from" value="/explore"/>
+                <button type="submit" class="btn btn-following">이웃중 ✓</button>
+            </form>
+        </div>
+    </div>
+</div>
+</body>
+</html>

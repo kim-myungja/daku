@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="_csrf" th:content="${_csrf != null ? _csrf.token : ''}"/>
+    <meta name="_csrf_header" th:content="${_csrf != null ? _csrf.headerName : ''}"/>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Gaegu&family=Jua&family=Nanum+Pen+Script&display=swap" rel="stylesheet">
+    <title>글쓰기</title>
+    <style>
+        @font-face {
+            font-family: 'DungGeunMo';
+            src: url('/fonts/DungGeunMo.woff') format('woff');
+            font-weight: normal;
+            font-display: swap;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        input, button, select, textarea { font-family: inherit; }
+        body {
+            background: #5b9bd5 url('/images/clouds.png') center/cover no-repeat fixed;
+            font-family: 'DungGeunMo', 'Georgia', serif;
+            color: #2a3560;
+            overflow: hidden;
+        }
+        header {
+            background: #fff;
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            height: 56px;
+        }
+        .home-btn { font-size: 20px; text-decoration: none; color: #5a4a3a; }
+        header input[type="text"] {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            outline: none;
+        }
+        header select {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            outline: none;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .btn-save { background: #3a6ff7; color: white; }
+        .btn-text { background: #cfe0ff; color: #5a4a3a; }
+        .btn-img { background: #cfe0ff; color: #5a4a3a; cursor: pointer; }
+
+        .toolbar {
+            background: #fff;
+            padding: 8px 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid #cfe0ff;
+        }
+        .toolbar label { font-size: 12px; color: #5a4a3a; }
+        .toolbar select, .toolbar input[type="number"] {
+            padding: 4px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .toolbar input[type="number"] { width: 60px; }
+        .toolbar input[type="color"] { width: 36px; height: 28px; border: none; cursor: pointer; }
+
+        .canvas-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+            height: calc(100vh - 106px);
+            overflow: auto;
+            background: transparent;
+        }
+        /* 글쓰기 캔버스도 노트 종이처럼 (왼쪽 스프링 + 표지 테두리) */
+        .notebook-edit { position: relative; padding-left: 38px; flex-shrink: 0; }
+        .notebook-edit .spiral {
+            position: absolute; left: 2px; top: 28px; bottom: 28px; width: 34px;
+            display: flex; flex-direction: column; justify-content: space-between; z-index: 5;
+        }
+        .notebook-edit .spiral i {
+            display: block; width: 34px; height: 11px;
+            border: 2.5px solid #b2925f; border-radius: 50%; background: #fffdf8;
+        }
+        .canvas {
+            position: relative;
+            background: #fffdf8;
+            width: 800px;
+            height: 1100px;
+            box-shadow: 6px 8px 24px rgba(0,0,0,0.24);
+            border: 3px solid #2a3560;
+            border-radius: 4px 18px 18px 4px;
+            flex-shrink: 0;
+        }
+        /* 페이지 넘기기 버튼 (오른쪽 아래) */
+        .page-nav {
+            position: fixed; bottom: 24px; right: 32px; z-index: 50;
+            display: flex; align-items: center; gap: 12px;
+            background: #fffdf8; border: 2.5px solid #2a3560; border-radius: 10px;
+            padding: 8px 16px; box-shadow: 3px 3px 0 #2a3560;
+        }
+        .page-nav button {
+            border: 2px solid #2a3560; background: #3a6ff7; color: #fff;
+            border-radius: 6px; cursor: pointer; font-size: 18px; padding: 2px 14px; line-height: 1.3;
+        }
+        .page-nav button:active { transform: translate(1px,1px); }
+        .page-nav span { font-size: 14px; color: #2a3560; min-width: 44px; text-align: center; }
+        .element {
+            position: absolute;
+            cursor: move;
+            user-select: none;
+        }
+        .element.selected { outline: 2px dashed #3a6ff7; }
+        .element img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            pointer-events: none;
+        }
+        .element .text-content {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: transparent;
+            resize: none;
+            font-family: 'Georgia', serif;
+            pointer-events: none;
+            cursor: move;
+        }
+        .element.editing .text-content {
+            pointer-events: auto;
+            cursor: text;
+        }
+        .delete-btn {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            width: 20px;
+            height: 20px;
+            background: #e05050;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 12px;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+        .element.selected .delete-btn { display: flex; }
+        .resize-handle {
+            position: absolute;
+            bottom: -5px;
+            right: -5px;
+            width: 12px;
+            height: 12px;
+            background: #3a6ff7;
+            cursor: se-resize;
+            display: none;
+        }
+        .element.selected .resize-handle { display: block; }
+        .hint {
+            position: absolute;
+            bottom: -24px;
+            left: 0;
+            font-size: 11px;
+            color: #999;
+            white-space: nowrap;
+            display: none;
+        }
+        .element.selected.text-el .hint { display: block; }
+    </style>
+</head>
+<body th:style="|font-family: '${userFont}', 'Georgia', serif|">
+
+<form id="saveForm" th:action="@{/diaries/new}" method="post">
+    <input type="hidden" name="title" id="hiddenTitle"/>
+    <input type="hidden" name="content" id="hiddenContent"/>
+    <input type="hidden" name="category" id="hiddenCategory"/>
+    <input type="hidden" name="visibility" id="hiddenVisibility" value="PRIVATE"/>
+    <input type="hidden" name="elementsJson" id="hiddenElements"/>
+</form>
+
+<header>
+    <a th:href="@{/diaries}" class="home-btn">🏠</a>
+    <input type="text" id="titleInput" placeholder="제목을 입력하세요" style="flex:1;"/>
+    <select id="categorySelect">
+        <option value="">카테고리 선택</option>
+        <option th:each="category : ${categories}"
+                th:value="${category.name}"
+                th:text="${category.displayName}"
+                th:style="${category.depth == 0} ? 'font-weight:bold;color:#2a3560;' : 'color:#8a93b5;'">카테고리</option>
+    </select>
+    <select id="visibilitySelect">
+        <option value="PRIVATE">🔒 비공개</option>
+        <option value="NEIGHBOR">👥 서로이웃공개</option>
+        <option value="PUBLIC">🌐 전체공개</option>
+    </select>
+    <button class="btn btn-text" type="button" onclick="addText()">📝 텍스트</button>
+    <label class="btn btn-img">
+        🖼️ 사진
+        <input type="file" accept="image/*" style="display:none" onchange="addImage(event)"/>
+    </label>
+    <button class="btn btn-save" type="button" onclick="save()">저장</button>
+</header>
+
+<div class="toolbar">
+    <label>폰트</label>
+    <select id="fontFamily" onchange="applyFont()">
+        <option value="Georgia, serif">Georgia</option>
+        <option value="'Courier New', monospace">Courier New</option>
+        <option value="Arial, sans-serif">Arial</option>
+        <option value="'Times New Roman', serif">Times New Roman</option>
+        <option value="'DungGeunMo', sans-serif">둥근모</option>
+    </select>
+    <label>크기</label>
+    <input type="number" id="fontSize" value="16" min="8" max="72" onchange="applyFont()"/>
+    <label>색상</label>
+    <input type="color" id="fontColor" value="#000000" onchange="applyFont()"/>
+    <span style="font-size:12px; color:#999;">💡 텍스트: 클릭=이동 / 더블클릭=편집</span>
+</div>
+
+<div class="canvas-wrapper">
+    <div class="notebook-edit">
+        <div class="spiral">
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+        </div>
+        <div class="canvas" id="canvas"></div>
+    </div>
+</div>
+
+<!-- 페이지 넘기기 (오른쪽 아래) -->
+<div class="page-nav">
+    <button type="button" onclick="prevPage()" title="이전 페이지">‹</button>
+    <span id="pageIndicator">1 / 1</span>
+    <button type="button" onclick="nextPage()" title="다음 페이지 (끝이면 새 페이지 추가)">›</button>
+</div>
+
+<script>
+    let selectedElement = null;
+    let currentPage = 1;
+    let totalPages = 1;
+    const canvas = document.getElementById('canvas');
+
+    canvas.addEventListener('pointerdown', function(e) {
+        if (e.target === canvas) deselectAll();
+    });
+
+    // ----- 여러 페이지(노트 넘기기) -----
+    function showPage(n) {
+        currentPage = n;
+        document.querySelectorAll('.element').forEach(function (el) {
+            el.style.display = (parseInt(el.dataset.page) === n) ? '' : 'none';
+        });
+        deselectAll();
+        const ind = document.getElementById('pageIndicator');
+        if (ind) ind.textContent = currentPage + ' / ' + totalPages;
+    }
+    function nextPage() {
+        if (currentPage < totalPages) { showPage(currentPage + 1); }
+        else { totalPages++; showPage(totalPages); }   // 끝이면 새 페이지
+    }
+    function prevPage() {
+        if (currentPage > 1) showPage(currentPage - 1);
+    }
+
+    function addText() {
+        const el = createEl('TEXT', '텍스트를 입력하세요', 100, 100, 200, 80);
+        canvas.appendChild(el);
+    }
+
+    // 서버에 업로드 후 경로를 받아 캔버스에 추가
+    async function addImage(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const headers = {};
+        const tokenMeta = document.querySelector('meta[name="_csrf"]');
+        const headerMeta = document.querySelector('meta[name="_csrf_header"]');
+        if (tokenMeta && headerMeta && tokenMeta.content) {
+            headers[headerMeta.content] = tokenMeta.content;
+        }
+
+        try {
+            const res = await fetch('/upload', { method: 'POST', body: formData, headers });
+            if (!res.ok) throw new Error('상태 ' + res.status);
+            const data = await res.json();
+            // 원본 비율대로 초기 크기 설정 (정사각형 고정 X)
+            const probe = new Image();
+            probe.onload = function () {
+                const maxW = 340, maxH = 440;
+                let w = probe.naturalWidth, h = probe.naturalHeight;
+                if (w > maxW) { h = h * (maxW / w); w = maxW; }
+                if (h > maxH) { w = w * (maxH / h); h = maxH; }
+                const el = createEl('IMAGE', data.url, 100, 100, Math.round(w), Math.round(h));
+                canvas.appendChild(el);
+            };
+            probe.src = data.url;
+        } catch (err) {
+            alert('이미지 업로드 실패: ' + err.message);
+        }
+        event.target.value = '';
+    }
+
+    function createEl(type, content, x, y, w, h) {
+        const div = document.createElement('div');
+        div.className = 'element' + (type === 'TEXT' ? ' text-el' : '');
+        div.dataset.type = type;
+        div.style.left = x + 'px';
+        div.style.top = y + 'px';
+        div.style.width = w + 'px';
+        div.style.height = h + 'px';
+
+        if (type === 'TEXT') {
+            const textarea = document.createElement('textarea');
+            textarea.className = 'text-content';
+            textarea.value = content;
+            textarea.style.fontSize = '16px';
+            textarea.style.fontFamily = 'Georgia, serif';
+            textarea.style.color = '#000000';
+
+            textarea.addEventListener('blur', function() {
+                div.classList.remove('editing');
+            });
+
+            div.appendChild(textarea);
+
+            const hint = document.createElement('div');
+            hint.className = 'hint';
+            hint.textContent = '더블클릭하면 편집';
+            div.appendChild(hint);
+
+            div.addEventListener('dblclick', function(e) {
+                div.classList.add('editing');
+                textarea.focus();
+                e.stopPropagation();
+            });
+
+        } else {
+            const img = document.createElement('img');
+            img.src = content;
+            div.appendChild(img);
+        }
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.innerHTML = '✕';
+        deleteBtn.addEventListener('pointerdown', function(e) {
+            e.stopPropagation();
+            div.remove();
+        });
+        div.appendChild(deleteBtn);
+
+        const resizeHandle = document.createElement('div');
+        resizeHandle.className = 'resize-handle';
+        div.appendChild(resizeHandle);
+
+        div.addEventListener('pointerdown', function(e) {
+            if (e.target === resizeHandle) return;
+            if (e.target.classList.contains('delete-btn')) return;
+            if (div.classList.contains('editing')) return; // 편집 중엔 클릭 = 커서 이동
+            selectElement(div);
+        });
+
+        makeDraggable(div, resizeHandle);
+        makeResizable(div, resizeHandle);
+
+        div.dataset.page = currentPage; // 지금 보고 있는 페이지에 추가
+        return div;
+    }
+
+    function selectElement(el) {
+        deselectAll();
+        el.classList.add('selected');
+        selectedElement = el;
+    }
+
+    function deselectAll() {
+        document.querySelectorAll('.element').forEach(el => {
+            el.classList.remove('selected', 'editing');
+        });
+        selectedElement = null;
+    }
+
+    function makeDraggable(el, resizeHandle) {
+        let startX, startY, startLeft, startTop, dragging = false;
+
+        el.addEventListener('pointerdown', function(e) {
+            if (e.target === resizeHandle) return;
+            if (e.target.classList.contains('delete-btn')) return;
+            if (el.classList.contains('editing')) return;
+
+            dragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            startLeft = parseInt(el.style.left);
+            startTop = parseInt(el.style.top);
+            el.setPointerCapture(e.pointerId);
+            e.preventDefault();
+        });
+
+        el.addEventListener('pointermove', function(e) {
+            if (!dragging) return;
+            el.style.left = (startLeft + e.clientX - startX) + 'px';
+            el.style.top = (startTop + e.clientY - startY) + 'px';
+        });
+
+        el.addEventListener('pointerup', function() { dragging = false; });
+    }
+
+    function makeResizable(el, handle) {
+        let startX, startY, startW, startH, resizing = false;
+
+        handle.addEventListener('pointerdown', function(e) {
+            resizing = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            startW = parseInt(el.style.width);
+            startH = parseInt(el.style.height);
+            handle.setPointerCapture(e.pointerId);
+            e.stopPropagation();
+            e.preventDefault();
+        });
+
+        handle.addEventListener('pointermove', function(e) {
+            if (!resizing) return;
+            const newW = Math.max(50, startW + e.clientX - startX);
+            if (el.dataset.type === 'IMAGE') {
+                // 이미지는 원본 비율을 유지하며 크기 조절
+                el.style.width = newW + 'px';
+                el.style.height = (newW * (startH / startW)) + 'px';
+            } else {
+                el.style.width = newW + 'px';
+                el.style.height = Math.max(30, startH + e.clientY - startY) + 'px';
+            }
+        });
+
+        handle.addEventListener('pointerup', function() { resizing = false; });
+    }
+
+    function applyFont() {
+        if (!selectedElement) return;
+        const textarea = selectedElement.querySelector('.text-content');
+        if (!textarea) return;
+        textarea.style.fontFamily = document.getElementById('fontFamily').value;
+        textarea.style.fontSize = document.getElementById('fontSize').value + 'px';
+        textarea.style.color = document.getElementById('fontColor').value;
+    }
+
+    function save() {
+        const title = document.getElementById('titleInput').value;
+        if (!title) { alert('제목을 입력하세요!'); return; }
+
+        const elementsData = [];
+        document.querySelectorAll('.element').forEach(el => {
+            const type = el.dataset.type;
+            const obj = {
+                type,
+                page: parseInt(el.dataset.page) || 1,
+                x: parseFloat(el.style.left),
+                y: parseFloat(el.style.top),
+                w: parseFloat(el.style.width),
+                h: parseFloat(el.style.height)
+            };
+            if (type === 'TEXT') {
+                const ta = el.querySelector('.text-content');
+                obj.content = ta ? ta.value : '';
+                obj.fontFamily = ta ? ta.style.fontFamily : '';
+                obj.fontSize = ta ? ta.style.fontSize : '';
+                obj.color = ta ? ta.style.color : '';
+            } else {
+                const img = el.querySelector('img');
+                obj.content = img ? img.getAttribute('src') : '';
+            }
+            elementsData.push(obj);
+        });
+
+        document.getElementById('hiddenTitle').value = title;
+        document.getElementById('hiddenContent').value = '캔버스 다이어리';
+        document.getElementById('hiddenCategory').value = document.getElementById('categorySelect').value;
+        document.getElementById('hiddenVisibility').value = document.getElementById('visibilitySelect').value;
+        document.getElementById('hiddenElements').value = JSON.stringify(elementsData);
+
+        document.getElementById('saveForm').submit();
+    }
+
+    showPage(1); // 시작은 1페이지
+</script>
+</body>
+</html>

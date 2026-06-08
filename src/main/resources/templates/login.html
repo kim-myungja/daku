@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로그인</title>
+    <style>
+        @font-face {
+            font-family: 'DungGeunMo';
+            src: url('/fonts/DungGeunMo.woff') format('woff');
+            font-weight: normal;
+            font-display: swap;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        input, button, select, textarea { font-family: inherit; }
+        body {
+            background: #5b9bd5 url('/images/clouds.png') center/cover no-repeat fixed;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'DungGeunMo', 'Georgia', serif;
+            color: #2a3560;
+            padding: 20px;
+        }
+
+        /* 노트 전체 (메인 페이지와 동일 톤) */
+        .notebook { position: relative; width: 380px; padding-left: 34px; }
+        .spiral {
+            position: absolute; left: 4px; top: 26px; bottom: 26px; width: 30px;
+            display: flex; flex-direction: column; justify-content: space-between; z-index: 3;
+        }
+        .spiral i {
+            display: block; width: 30px; height: 9px;
+            border: 2.5px solid #b2925f; border-radius: 50%; background: #fffdf8;
+        }
+        .page {
+            background: #fffdf8;
+            border-radius: 4px 20px 20px 4px;
+            box-shadow: 6px 8px 24px rgba(0,0,0,0.18);
+            padding: 30px 30px 34px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 18px;
+        }
+
+        /* 제목바 (하늘→흰 그라데이션 + 픽셀 외곽선 + 밑줄) */
+        .title {
+            font-size: 24px;
+            letter-spacing: 1px;
+            background: linear-gradient(180deg, #6ea8ff 0%, #ffffff 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            -webkit-text-stroke: 1px #3a6ff7;
+            border-bottom: 3px double #3a6ff7;
+            padding-bottom: 10px;
+            width: 100%;
+            text-align: center;
+        }
+
+        /* 프로필 사진 자리 (메인과 동일하게 정사각형) */
+        .avatar {
+            width: 104px;
+            height: 104px;
+            border-radius: 12px;
+            background: #e7ddcc;
+            border: 2px solid #3a6ff7;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 48px;
+            color: #8a7aa8;
+            overflow: hidden;
+        }
+
+        form { width: 100%; display: flex; flex-direction: column; gap: 12px; }
+        input {
+            width: 100%;
+            padding: 11px 14px;
+            border: 1px solid #cdd9ee;
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+            background: #f7faff;
+            color: #2a3560;
+        }
+        input:focus { border-color: #3a6ff7; }
+
+        .error { color: #e0506a; font-size: 12px; text-align: center; }
+
+        .btn-area { display: flex; gap: 10px; width: 100%; }
+        .btn-area button, .btn-area .btn {
+            flex: 1;
+            padding: 11px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 15px;
+            text-align: center;
+            text-decoration: none;
+            border: 2px solid #2a3560;
+            box-shadow: 2px 2px 0 #2a3560;
+        }
+        .btn-area button:active, .btn-area .btn:active {
+            box-shadow: 0 0 0 #2a3560; transform: translate(2px, 2px);
+        }
+        .btn-login { background: #3a6ff7; color: #fff; }
+        .btn-register { background: #cfe0ff; color: #2a3560; }
+    </style>
+</head>
+<body>
+<div class="notebook">
+    <!-- 스프링 코일 -->
+    <div class="spiral">
+        <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+    </div>
+
+    <div class="page">
+        <div class="title">My Diary</div>
+
+        <!-- 프로필 사진 자리 -->
+        <div class="avatar">👤</div>
+
+        <!-- 로그인 폼 -->
+        <form th:action="@{/login}" method="post">
+            <p class="error" th:if="${param.error}">아이디 또는 비밀번호가 틀렸습니다.</p>
+            <input type="text" name="username" placeholder="ID" required/>
+            <input type="password" name="password" placeholder="비밀번호" required/>
+            <div class="btn-area">
+                <button type="submit" class="btn-login">Login</button>
+                <a th:href="@{/register}" class="btn btn-register">New</a>
+            </div>
+        </form>
+    </div>
+</div>
+</body>
+</html>

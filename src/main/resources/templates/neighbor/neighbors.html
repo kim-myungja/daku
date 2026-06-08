@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이웃</title>
+    <style>
+        @font-face { font-family:'DungGeunMo'; src:url('/fonts/DungGeunMo.woff') format('woff'); font-weight:normal; font-display:swap; }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { background:#5b9bd5 url('/images/clouds.png') center/cover no-repeat fixed; font-family:'DungGeunMo','Georgia',serif; color:#2a3560; }
+        header { background:#fff; padding:12px 24px; display:flex; gap:12px; align-items:center; box-shadow:0 2px 8px rgba(0,0,0,0.08); }
+        header a { text-decoration:none; color:#5a4a3a; font-size:14px; }
+        .wrap { max-width:600px; margin:24px auto; padding:0 16px; }
+        h3 { color:#fff; margin:24px 0 12px; text-shadow:1px 1px 3px rgba(0,0,0,0.55); }
+
+        /* 인스타 팔로잉 스타일 목록 */
+        .insta-list { background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,0.12); }
+        .insta-row { display:flex; align-items:center; gap:14px; padding:12px 16px; border-bottom:1px solid #f0f0f0; }
+        .insta-row:last-child { border-bottom:none; }
+        .insta-avatar {
+            width:48px; height:48px; border-radius:50%; background:#e7ddcc; overflow:hidden;
+            flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:24px;
+            border:1px solid #ddd;
+        }
+        .insta-avatar img { width:100%; height:100%; object-fit:cover; }
+        .insta-info { flex:1; min-width:0; }
+        .insta-username { font-weight:bold; color:#222; text-decoration:none; font-size:14px; }
+        .insta-username:hover { color:#3a6ff7; }
+        .insta-name { color:#888; font-size:12px; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .insta-row form { margin:0; }
+        .insta-btn { border:none; border-radius:8px; padding:8px 18px; cursor:pointer; font-size:13px; font-family:inherit; }
+        .insta-btn.accept { background:#3a6ff7; color:#fff; }
+        .insta-btn.reject { background:#efefef; color:#c0506a; }
+        .insta-btn.unfollow { background:#efefef; color:#333; }
+        .insta-badge { color:#3a6ff7; font-size:13px; font-weight:bold; }
+        .empty { color:#fff; font-size:14px; text-shadow:1px 1px 3px rgba(0,0,0,0.55); }
+    </style>
+</head>
+<body>
+<header>
+    <a th:href="@{/diaries}">🏠 내 다이어리</a>
+    <a th:href="@{/explore}">🔍 이웃 찾기</a>
+    <span style="flex:1"></span>
+    <strong style="color:#2a3560;">이웃</strong>
+</header>
+
+<div class="wrap">
+    <!-- 받은 서로이웃 신청 -->
+    <h3>받은 서로이웃 신청</h3>
+    <div th:if="${pending.isEmpty()}" class="empty">받은 신청이 없어요.</div>
+    <div class="insta-list" th:unless="${pending.isEmpty()}">
+        <div class="insta-row" th:each="n : ${pending}">
+            <div class="insta-avatar">
+                <img th:if="${n.requester.profileImage != null and !n.requester.profileImage.isEmpty()}" th:src="${n.requester.profileImage}" alt="">
+                <span th:if="${n.requester.profileImage == null or n.requester.profileImage.isEmpty()}">👤</span>
+            </div>
+            <div class="insta-info">
+                <a class="insta-username" th:href="@{/users/{id}(id=${n.requester.id})}"
+                   th:text="'@' + (${n.requester.nickname != null ? n.requester.nickname : n.requester.username})">@닉네임</a>
+                <div class="insta-name" th:text="${n.requester.diaryTitle}">다이어리 제목</div>
+            </div>
+            <div style="display:flex; gap:6px;">
+                <form th:action="@{/neighbors/{id}/accept(id=${n.id})}" method="post">
+                    <button type="submit" class="insta-btn accept">수락</button>
+                </form>
+                <form th:action="@{/neighbors/{id}/reject(id=${n.id})}" method="post">
+                    <button type="submit" class="insta-btn reject">거절</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 서로이웃 -->
+    <h3>서로이웃</h3>
+    <div th:if="${myNeighbors.isEmpty()}" class="empty">아직 서로이웃이 없어요.</div>
+    <div class="insta-list" th:unless="${myNeighbors.isEmpty()}">
+        <div class="insta-row" th:each="u : ${myNeighbors}">
+            <div class="insta-avatar">
+                <img th:if="${u.profileImage != null and !u.profileImage.isEmpty()}" th:src="${u.profileImage}" alt="">
+                <span th:if="${u.profileImage == null or u.profileImage.isEmpty()}">👤</span>
+            </div>
+            <div class="insta-info">
+                <a class="insta-username" th:href="@{/users/{id}(id=${u.id})}"
+                   th:text="'@' + (${u.nickname != null ? u.nickname : u.username})">@닉네임</a>
+                <div class="insta-name" th:text="${u.diaryTitle}">다이어리 제목</div>
+            </div>
+            <span class="insta-badge">✔ 서로이웃</span>
+        </div>
+    </div>
+
+    <!-- 이웃 (내가 팔로우한) -->
+    <h3>이웃</h3>
+    <div th:if="${following.isEmpty()}" class="empty">아직 추가한 이웃이 없어요. 이웃 찾기에서 추가해보세요!</div>
+    <div class="insta-list" th:unless="${following.isEmpty()}">
+        <div class="insta-row" th:each="u : ${following}">
+            <div class="insta-avatar">
+                <img th:if="${u.profileImage != null and !u.profileImage.isEmpty()}" th:src="${u.profileImage}" alt="">
+                <span th:if="${u.profileImage == null or u.profileImage.isEmpty()}">👤</span>
+            </div>
+            <div class="insta-info">
+                <a class="insta-username" th:href="@{/users/{id}(id=${u.id})}"
+                   th:text="'@' + (${u.nickname != null ? u.nickname : u.username})">@닉네임</a>
+                <div class="insta-name" th:text="${u.diaryTitle}">다이어리 제목</div>
+            </div>
+            <form th:action="@{/unfollow}" method="post">
+                <input type="hidden" name="toUserId" th:value="${u.id}"/>
+                <input type="hidden" name="from" value="/neighbors"/>
+                <button type="submit" class="insta-btn unfollow">이웃 취소</button>
+            </form>
+        </div>
+    </div>
+</div>
+</body>
+</html>
