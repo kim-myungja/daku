@@ -22,7 +22,7 @@ public class SecurityConfig {
                 )
                 .formLogin(form -> form
                         .loginPage("/login")
-                        .defaultSuccessUrl("/diaries")
+                        .defaultSuccessUrl("/diaries", true) // 로그인 후 항상 /diaries 로 (원래 요청 URL 무시)
                         .permitAll()
                 )
                 .logout(logout -> logout

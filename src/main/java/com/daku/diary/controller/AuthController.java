@@ -14,6 +14,12 @@ public class AuthController {
 
     private final UserService userService;
 
+    // 루트(/) 접속 시 내 다이어리로 (미인증이면 시큐리티가 /login 으로 보냄)
+    @GetMapping("/")
+    public String home() {
+        return "redirect:/diaries";
+    }
+
     // 로그인 페이지 보여주기
     @GetMapping("/login")
     public String loginPage() {
